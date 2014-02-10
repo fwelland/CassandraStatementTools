@@ -22,9 +22,8 @@ repositories {
 }
 
 dependencies {
-    compile 'com.netflix.astyanax:astyanax-cassandra:1.56.44'
-        'com.netflix.astyanax:astyanax-thrift:1.56.44'  
-        'com.netflix.astyanax:astyanax-core:1.56.44'
+    compile 'com.datastax.cassandra:cassandra-driver-core:2.0.0-rc2'
+            
             
     
     // TODO: Add dependencies here ...
