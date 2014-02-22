@@ -36,16 +36,16 @@ public class CLoad {
     {
         System.out.println("go");
         CLoad c = new CLoad();
-        c.connect("localhost");
+        c.connect("dev2y01.promnetwork.com");
         //c.readSomeRows();
-//        try
-//        {
-//            c.insertAFile();
-//        }
-//        catch(Exception  e)
-//        {
-//            e.printStackTrace();
-//        }
+        try
+        {
+            c.insertAFile();
+        }
+        catch(Exception  e)
+        {
+            e.printStackTrace();
+        }
 //        try
 //        {
 //            c.readAFile("6e15e7bb-fdad-4967-add1-c5417afabd4c");
@@ -55,17 +55,17 @@ public class CLoad {
 //            e.printStackTrace();
 //        }
         
-        try
-        {
-            long beg = System.currentTimeMillis();
-            c.loadReports();
-            long end = System.currentTimeMillis();
-            System.out.println("total elapse time in ms:  " + (end - beg) ); 
-        }
-        catch(Exception e)
-        {
-            e.printStackTrace();
-        }
+//        try
+//        {
+//            long beg = System.currentTimeMillis();
+//            c.loadReports();
+//            long end = System.currentTimeMillis();
+//            System.out.println("total elapse time in ms:  " + (end - beg) ); 
+//        }
+//        catch(Exception e)
+//        {
+//            e.printStackTrace();
+//        }
         
         c.close();
         System.exit(0);
@@ -73,7 +73,7 @@ public class CLoad {
 
     public void connect(String node)
     {
-        cluster = Cluster.builder().addContactPoint(node).build();
+        cluster = Cluster.builder().addContactPoint(node).withPort(8400).build();
         Metadata metadata = cluster.getMetadata();
         System.out.printf("Connected to cluster: %s\n", metadata.getClusterName());
         for (Host host : metadata.getAllHosts())
