@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     compile 'com.datastax.cassandra:cassandra-driver-core:2.0.0-rc2'
-            
+    compile 'com.beust:jcommander:1.32'        
             
     
     // TODO: Add dependencies here ...
