@@ -12,9 +12,9 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.*;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import com.datastax.driver.core.querybuilder.Select.Where;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -37,23 +37,29 @@ public class CLoad
     @Parameter(names = "-date", description = "specfic date to operate on (fmt  yyyy-MM-dd)", required = true)
     private Date statementDate; 
     
-    @Parameter(names = "-id", description = "The integral id of the entity performing operation", required = true)
-    private Integer entityId;     
+    @Parameter(names = "-customerid", description = "The integral id of the customer performing operation", required = true)
+    private Integer customerId;     
     
-    @Parameter(names ="-keyspace", description = "key space name to work on (default entitystatements)")
+    @Parameter(names ="-keyspace", description = "key space name to work on (default 'statementarchive')")
     private String keyspace = "statementarchive";
     
-    @Parameter(names ="-table", description = "key space name to work on (default entitystatements)")
+    @Parameter(names ="-table", description = "key space name to work on (default 'statements')")
     private String table = "statements";
     
-    @Parameter(names ="-statementId", description = "(required)The statement id of statement to operate one")
-    private String statementId;    
+    @Parameter(names ="-statementtype", description = "(required)The statement type")
+    private String statementType;    
     
     @Parameter(names ="-file", description = "(required)The path & name of the statement file to operate on", converter = FileConverter.class)
     private File statementFile;  
     
     @Parameter(names = "-consistency", description="(required)The consistency level of the cassandra operation", converter = ConsistencyLevelConverter.class)
     private ConsistencyLevel clevel;
+    
+    @Parameter(names = "-select", description="if specified, the program will select files based on input parameters")
+    private Boolean doSelect = Boolean.FALSE;
+    
+    @Parameter(names = "-uuid", description = "specify a uuid to looks for. only make sense with -select", converter = UUIDConverter.class)
+    private UUID statementUUID; 
     
     private PrintStream pStream = System.out; 
     
@@ -62,13 +68,22 @@ public class CLoad
 
     public static void main(String args[])
     {
-        String margs[] = new String[]{"-node", "127.0.0.1", "-date", "2014-02-26", "-id", "4799", "-statementId", "9700", "-consistency", "LOCAL_QUORUM", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};
+        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "de7436ce-a096-4d3a-a210-c833cb6ad9db","-date", "2014-02-26", "-customerid", "4799"};
+
+        //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3",  "-date", "2014-02-26", "-customerid", "4799", "-statementtype", "9700", "-consistency", "ONE", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
         CLoad c = new CLoad();
         new JCommander(c, margs);
         c.connect();
         try
         {
-            c.addStatement();
+            if(c.doSelect)
+            {
+                c.selectStatements();
+            }
+            else
+            {
+                c.addStatement();
+            }
         }
         catch(Exception e)
         {
@@ -122,12 +137,12 @@ public class CLoad
             buffer.rewind();
         }            
         Insert i = QueryBuilder.insertInto(keyspace,table);
-        i.value("archive_id", UUID.randomUUID());
-        i.value("entity_id", entityId);
+        i.value("archived_statement_id", UUID.randomUUID());
+        i.value("customer_id", customerId);
         i.value("day", day);
         i.value("month", month);
         i.value("year", year); 
-        i.value("statement_id", statementId); 
+        i.value("statement_type", statementType); 
         i.value("statement_filename", fileName);
         i.value("statement", buffer);
         i.setConsistencyLevel(clevel); 
@@ -140,51 +155,36 @@ public class CLoad
         cluster.shutdown();
     }
 
-    public void insertAFile()
+    
+//          if(null != statementDate)
+//        {
+//            Calendar cal = Calendar.getInstance();
+//            cal.setTime(statementDate);
+//            Integer y = cal.get(Calendar.YEAR);
+//            Integer m = cal.get(Calendar.MONTH);
+//            Integer day = cal.get(Calendar.DAY_OF_MONTH);
+//            q.where().and(eq("year",y)).and(eq("month",m)).and(eq("day",day));
+//        }
+    
+    
+    public void selectStatements()
             throws Exception
     {
-        PreparedStatement statement = session.prepare(
-                "INSERT INTO pinappsreportarchive.reports "
-                + "(report_archive_id, bank_id, day, description, month, report, report_id, year) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
-
-        BoundStatement boundStatement = new BoundStatement(statement);
-        UUID uuid = UUID.randomUUID();
-        String path = "/home/fwelland/reports/2010/47900/01/1/B47900R0770.pdf.gz";
-        ByteBuffer buffer;
-        try (RandomAccessFile aFile = new RandomAccessFile(path, "r"); FileChannel inChannel = aFile.getChannel())
+        Select q = QueryBuilder.select("archived_statement_id", "customer_id", "day", "month","year","statement_type", "statement_filename").from(keyspace, table);
+        if(null != statementUUID)
         {
-            long fileSize = inChannel.size();
-            buffer = ByteBuffer.allocate((int) fileSize);
-            inChannel.read(buffer);
-            
-            
-            
-            buffer.rewind();
+            q.where(eq("archived_statement_id", statementUUID));
         }
-        boundStatement.bind(uuid, 47900, 1, "test report", 1, buffer, "4790", 2014);
-        session.execute(boundStatement);
-    }
-
-    public void readAFile(String reportUUID)
-            throws Exception
-    {
-        UUID uuid = UUID.fromString(reportUUID);
-        Statement q = QueryBuilder.select("report_id", "report").from("pinappsreportarchive", "reports").where(eq("report_archive_id", uuid));
+        
+        if(null != clevel)
+        {
+            q.setConsistencyLevel(clevel);            
+        }
+        
         ResultSet rs = session.execute(q);
-        Row r = rs.one();
-        if (null != r)
+        for(Row r : rs)
         {
-            System.out.println("The report is: " + r.getString("report_id"));
-            ByteBuffer buffer = r.getBytes("report");
-            File file = new File("/tmp/foo.dat");
-            FileChannel channel = new FileOutputStream(file, false).getChannel();
-            channel.write(buffer);
-            channel.close();
-        }
-        else
-        {
-            System.out.println("oh no null!");
+            System.out.println("uuid:  " + r.getUUID("archived_statement_id").toString());
         }
     }
 
@@ -264,37 +264,23 @@ public class CLoad
         boundStatement.bind(uuid, bank_id, day, description, month, buffer, report_id, year);
         session.execute(boundStatement);
     }
-    
-    public void readSomeRows()
-    {
-        ResultSet results = session.execute("select * from pinappsreportarchive.reports");
-        for (Row row : results)
-        {
-            UUID uuid = row.getUUID("report_archive_id");
-            System.out.println(String.format("%-30s\t%-20s\t%d", uuid.toString(), row.getString("report_id"), row.getInt("bank_id")));
-        }
-    }
-    
 }
-
 
 /**
  * 
 create KEYSPACE  statementarchive 
-WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 2 };
-USE "StatementArchive";
+WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
 CREATE TABLE statementarchive.statements (         
-    archive_id uuid,         
-    entity_id int,         
-    statement_id text,         
+    archived_statement_id uuid,         
+    customer_id int,         
+    statement_type text,         
     statement_filename text,         
     year int,         
     month int,         
     day int,         
     statement blob,         
-    primary key (archive_id));
-
-* 
-* 
+    primary key (archived_statement_id));
+ * 
+ * 
  * 
  */
