@@ -14,7 +14,6 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.querybuilder.*;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
-import com.datastax.driver.core.querybuilder.Select.Where;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -53,7 +52,7 @@ public class CLoad
     private File statementFile;  
     
     @Parameter(names = "-consistency", description="(required)The consistency level of the cassandra operation", converter = ConsistencyLevelConverter.class)
-    private ConsistencyLevel clevel;
+    private ConsistencyLevel clevel = ConsistencyLevel.ONE;
     
     @Parameter(names = "-select", description="if specified, the program will select files based on input parameters")
     private Boolean doSelect = Boolean.FALSE;
@@ -68,9 +67,9 @@ public class CLoad
 
     public static void main(String args[])
     {
-        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "de7436ce-a096-4d3a-a210-c833cb6ad9db","-date", "2014-02-26", "-customerid", "4799"};
-
+        //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "de7436ce-a096-4d3a-a210-c833cb6ad9db","-date", "2014-02-26", "-customerid", "4799"};
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3",  "-date", "2014-02-26", "-customerid", "4799", "-statementtype", "9700", "-consistency", "ONE", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
+        String margs[] = new String[]{"-node", "127.0.0.1",  "-date", "2014-02-27", "-customerid", "4799", "-statementtype", "9700", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
         CLoad c = new CLoad();
         new JCommander(c, margs);
         c.connect();
