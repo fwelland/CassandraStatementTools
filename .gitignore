@@ -11,3 +11,4 @@
 /.gradle/1.11/taskArtifacts/fileSnapshots.bin
 /.gradle/1.11/taskArtifacts/taskArtifacts.bin
 /.gradle/1.11/taskArtifacts/cache.properties
+/.nb-gradle/private/
