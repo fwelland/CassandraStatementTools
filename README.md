@@ -12,3 +12,4 @@ For more details, check out [some stuff I wrote about this.](http://stupidfredtr
 * The project uses Gradle 
 * I primarily built it using NetBeans
 * Read the blog for more details. 
+* _**This is work in progress, check back often for updates!**_
