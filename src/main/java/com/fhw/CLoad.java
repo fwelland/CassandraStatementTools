@@ -75,14 +75,24 @@ public class CLoad
         c.connect();
         try
         {
-            if(c.doSelect)
-            {
-                c.selectStatements();
-            }
-            else
-            {
-                c.addStatement();
-            }
+            c.loadReports();
+//            if(c.doSelect)
+//            {
+//                c.selectStatements();
+//            }
+//            else
+//            {
+//                Calendar cal = Calendar.getInstance();
+//                cal.setTime(c.statementDate);
+//                Statement s = new Statement(); 
+//                s.setCustomerId(c.customerId);
+//                s.setYear( cal.get(Calendar.YEAR)  );
+//                s.setDay(cal.get(Calendar.DAY_OF_MONTH));
+//                s.setMonth(cal.get(Calendar.MONTH) + 1);
+//                s.setStatementPath(c.statementFile.getAbsolutePath());
+//                s.setStatementType(c.statementType);
+//                c.addStatement(s);
+//            }
         }
         catch(Exception e)
         {
@@ -117,54 +127,36 @@ public class CLoad
         session = cluster.connect();
     }
     
-    private void addStatement()
+    public String addStatement(Statement s)
             throws IOException
-    {
-        Calendar c = Calendar.getInstance();
-        c.setTime(statementDate);
-        int year = c.get(Calendar.YEAR);
-        int day = c.get(Calendar.DAY_OF_MONTH);
-        int month = c.get(Calendar.MONTH);
-        String fileName = statementFile.getName();
-        
+    {        
         ByteBuffer buffer;
-        try (RandomAccessFile aFile = new RandomAccessFile(statementFile, "r"); FileChannel inChannel = aFile.getChannel())
+        try (RandomAccessFile aFile = new RandomAccessFile(s.getStatementPath(), "r"); FileChannel inChannel = aFile.getChannel())
         {
             long fileSize = inChannel.size();
             buffer = ByteBuffer.allocate((int) fileSize);
             inChannel.read(buffer);
             buffer.rewind();
-        }            
+        }    
         Insert i = QueryBuilder.insertInto(keyspace,table);
-        i.value("archived_statement_id", UUID.randomUUID());
-        i.value("customer_id", customerId);
-        i.value("day", day);
-        i.value("month", month);
-        i.value("year", year); 
-        i.value("statement_type", statementType); 
-        i.value("statement_filename", fileName);
+        i.value("archived_statement_id", s.getArchivedStatementId());
+        i.value("customer_id", s.getCustomerId());
+        i.value("day", s.getDay());
+        i.value("month", s.getMonth());
+        i.value("year", s.getYear()); 
+        i.value("statement_type", s.getStatementType()); 
+        i.value("statement_filename", s.getStatementFilename());
         i.value("statement", buffer);
         i.setConsistencyLevel(clevel); 
-        session.execute(i);        
-    }
-
+        session.execute(i);
+        return(s.getArchivedStatementId().toString()); 
+    }    
+    
     public void close()
     {
         session.shutdown();
         cluster.shutdown();
     }
-
-    
-//          if(null != statementDate)
-//        {
-//            Calendar cal = Calendar.getInstance();
-//            cal.setTime(statementDate);
-//            Integer y = cal.get(Calendar.YEAR);
-//            Integer m = cal.get(Calendar.MONTH);
-//            Integer day = cal.get(Calendar.DAY_OF_MONTH);
-//            q.where().and(eq("year",y)).and(eq("month",m)).and(eq("day",day));
-//        }
-    
     
     public void selectStatements()
             throws Exception
@@ -190,96 +182,13 @@ public class CLoad
     public void loadReports()
             throws IOException
     {
-
-        FileVisitor crawler = new SimpleFileVisitor<Path>()
-        {
-            private int count = 0;
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attr)
-            {
-                try
-                {
-                    addReport(file);
-                }
-                catch (Exception e)
-                {
-                    System.out.println("failed adding " + file.toString() + "; error:  " + e.getMessage());
-                }
-//                count ++;
-//                if(count > 3)
-//                    System.exit(0); 
-                return CONTINUE;
-            }
-        };
-        Files.walkFileTree(Paths.get(_root), crawler);
+        StatementFileVistor crawler = new StatementFileVistor(); 
+        crawler.setLoader(this);
+        crawler.setRootLen(root_len);
+        Files.walkFileTree(Paths.get(root), crawler);
+        System.out.println("I added " + crawler.getCount() + " statements");
     }
 
-    private static final String _root = "/home/fwelland/reports";
-    private static final int _root_len = _root.length();
-
-    public void addReport(Path reportPath)
-            throws IOException
-    {
-
-        int bank_id;
-        int year;
-        int day;
-        int month;
-        String report_id;
-
-        String absPath = reportPath.toAbsolutePath().toString();
-        String p = absPath.substring(_root_len + 1);
-        String s = p.substring(0, 4);
-        year = Integer.parseInt(s);
-        s = p.substring(5, 10);
-        bank_id = Integer.parseInt(s);
-        s = p.substring(11, 13);
-        month = Integer.parseInt(s);
-        int idx = p.indexOf('/', 14);
-        s = p.substring(14, idx);
-        day = Integer.parseInt(s);
-        String description = reportPath.getFileName().toString();
-        idx = description.indexOf('R') + 1;
-        int end = description.indexOf('.');
-        report_id = description.substring(idx, end);
-
-        PreparedStatement statement = session.prepare(
-                "INSERT INTO pinappsreportarchive.reports "
-                + "(report_archive_id, bank_id, day, description, month, report, report_id, year) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
-
-        BoundStatement boundStatement = new BoundStatement(statement);
-        UUID uuid = UUID.randomUUID();
-
-        ByteBuffer buffer;
-        try (RandomAccessFile aFile = new RandomAccessFile(absPath, "r"); FileChannel inChannel = aFile.getChannel())
-        {
-            long fileSize = inChannel.size();
-            buffer = ByteBuffer.allocate((int) fileSize);
-            inChannel.read(buffer);
-            buffer.rewind();
-        }
-        boundStatement.bind(uuid, bank_id, day, description, month, buffer, report_id, year);
-        session.execute(boundStatement);
-    }
+    private static final String root = "/home/fwelland/statements";
+    private static final int root_len = root.length();
 }
-
-/**
- * 
-create KEYSPACE  statementarchive 
-WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-CREATE TABLE statementarchive.statements (         
-    archived_statement_id uuid,         
-    customer_id int,         
-    statement_type text,         
-    statement_filename text,         
-    year int,         
-    month int,         
-    day int,         
-    statement blob,         
-    primary key (archived_statement_id));
- * 
- * 
- * 
- */
