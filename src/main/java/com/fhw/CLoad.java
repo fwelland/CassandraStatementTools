@@ -3,40 +3,33 @@ package com.fhw;
 import com.beust.jcommander.*;
 import com.beust.jcommander.converters.*;
 import com.datastax.driver.core.*;
-import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Cluster.Builder;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.querybuilder.*;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import com.fhw.Statement;
+import dnl.utils.text.table.*;
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.FileVisitResult;
-import static java.nio.file.FileVisitResult.CONTINUE;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.UUID;
+import java.nio.*;
+import java.nio.channels.*;
+import java.nio.file.*;
 import java.util.*;
+import java.util.UUID;
 
 public class CLoad
 {
     @Parameter(names = "-node", description = "cassandra host:port", converter = HostPortConverter.class, required = true)
     private List<HostPort> nodes = new ArrayList<>();
     
-    @Parameter(names = "-date", description = "specfic date to operate on (fmt  yyyy-MM-dd)", required = true)
+    @Parameter(names = "-date", description = "specfic date to operate on (fmt  yyyy-MM-dd)")
     private Date statementDate; 
     
-    @Parameter(names = "-customerid", description = "The integral id of the customer performing operation", required = true)
+    @Parameter(names = "-customerid", description = "The integral id of the customer performing operation")
     private Integer customerId;     
     
     @Parameter(names ="-keyspace", description = "key space name to work on (default 'statementarchive')")
@@ -69,30 +62,30 @@ public class CLoad
     {
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "de7436ce-a096-4d3a-a210-c833cb6ad9db","-date", "2014-02-26", "-customerid", "4799"};
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3",  "-date", "2014-02-26", "-customerid", "4799", "-statementtype", "9700", "-consistency", "ONE", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
-        String margs[] = new String[]{"-node", "127.0.0.1",  "-date", "2014-02-27", "-customerid", "4799", "-statementtype", "9700", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
+        //String margs[] = new String[]{"-node", "127.0.0.1",  "-date", "2014-02-27", "-customerid", "4799", "-statementtype", "9700", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
+        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "53ad6a82-cfa6-4808-9423-9f76d9fd6de9"};
         CLoad c = new CLoad();
         new JCommander(c, margs);
         c.connect();
         try
         {
-            c.loadReports();
-//            if(c.doSelect)
-//            {
-//                c.selectStatements();
-//            }
-//            else
-//            {
-//                Calendar cal = Calendar.getInstance();
-//                cal.setTime(c.statementDate);
-//                Statement s = new Statement(); 
-//                s.setCustomerId(c.customerId);
-//                s.setYear( cal.get(Calendar.YEAR)  );
-//                s.setDay(cal.get(Calendar.DAY_OF_MONTH));
-//                s.setMonth(cal.get(Calendar.MONTH) + 1);
-//                s.setStatementPath(c.statementFile.getAbsolutePath());
-//                s.setStatementType(c.statementType);
-//                c.addStatement(s);
-//            }
+            if(c.doSelect)
+            {
+                c.selectStatements();
+            }
+            else
+            {
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(c.statementDate);
+                Statement s = new Statement(); 
+                s.setCustomerId(c.customerId);
+                s.setYear( cal.get(Calendar.YEAR)  );
+                s.setDay(cal.get(Calendar.DAY_OF_MONTH));
+                s.setMonth(cal.get(Calendar.MONTH) + 1);
+                s.setStatementPath(c.statementFile.getAbsolutePath());
+                s.setStatementType(c.statementType);
+                c.addStatement(s);
+            }
         }
         catch(Exception e)
         {
@@ -173,10 +166,21 @@ public class CLoad
         }
         
         ResultSet rs = session.execute(q);
+        
+        String colNames [] = {"statement id", "customer id", "statement type"};
+        List<Object[]> list = new ArrayList<>();
         for(Row r : rs)
         {
-            System.out.println("uuid:  " + r.getUUID("archived_statement_id").toString());
+            Object row[] = new Object[3];
+            row[0] = r.getUUID("archived_statement_id").toString();
+            row[1] = r.getInt("customer_id"); 
+            row[2] = r.getString("statement_type"); 
+            list.add(row);                        
         }
+        Object data[][] = new Object[list.size()][];
+        list.toArray(data); 
+        TextTable tt = new TextTable(colNames, data);         
+        tt.printTable();         
     }
 
     public void loadReports()

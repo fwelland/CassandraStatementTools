@@ -16,19 +16,17 @@ if (!hasProperty('mainClass')) {
 
 repositories {
     mavenCentral()
-    // You may define additional repositories, or even remove "mavenCentral()".
-    // Read more about repositories here:
-    //   http://www.gradle.org/docs/current/userguide/dependency_management.html#sec:repositories
+    maven
+    {
+        url "http://d-maven.googlecode.com/svn/trunk/repo"
+    }
 }
 
 dependencies {
     compile 'com.datastax.cassandra:cassandra-driver-core:2.0.0-rc2'
     compile 'com.beust:jcommander:1.32'  
     compile 'org.projectlombok:lombok:1.12.6'
-            
-    
-    // TODO: Add dependencies here ...
-    // You can read more about how to add dependency here:
-    //   http://www.gradle.org/docs/current/userguide/dependency_management.html#sec:how_to_declare_your_dependencies
+    compile 'dnl.utils:j-text-utils:0.3.3' 
+
     testCompile group: 'junit', name: 'junit', version: '4.10'
 }
