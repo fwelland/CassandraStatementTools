@@ -63,7 +63,8 @@ public class CLoad
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "de7436ce-a096-4d3a-a210-c833cb6ad9db","-date", "2014-02-26", "-customerid", "4799"};
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3",  "-date", "2014-02-26", "-customerid", "4799", "-statementtype", "9700", "-consistency", "ONE", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
         //String margs[] = new String[]{"-node", "127.0.0.1",  "-date", "2014-02-27", "-customerid", "4799", "-statementtype", "9700", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
-        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "53ad6a82-cfa6-4808-9423-9f76d9fd6de9"};
+        //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "53ad6a82-cfa6-4808-9423-9f76d9fd6de9"};
+        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-customerid", "47900"};        
         CLoad c = new CLoad();
         new JCommander(c, margs);
         c.connect();
@@ -159,6 +160,13 @@ public class CLoad
         {
             q.where(eq("archived_statement_id", statementUUID));
         }
+        else
+        {
+            if( null != customerId)
+            {
+                q.where(eq("customer_id", customerId));
+            }
+        }
         
         if(null != clevel)
         {
@@ -167,20 +175,25 @@ public class CLoad
         
         ResultSet rs = session.execute(q);
         
-        String colNames [] = {"statement id", "customer id", "statement type"};
+        String colNames [] = {"statement id", "date","customer id", "statement type"};
         List<Object[]> list = new ArrayList<>();
+        int count = 0;
         for(Row r : rs)
         {
-            Object row[] = new Object[3];
+            Object row[] = new Object[4];
             row[0] = r.getUUID("archived_statement_id").toString();
-            row[1] = r.getInt("customer_id"); 
-            row[2] = r.getString("statement_type"); 
-            list.add(row);                        
+            row[1] = String.format("%02d-%02d-%d", r.getInt("day"),r.getInt("month"), r.getInt("year"));
+            row[2] = r.getInt("customer_id"); 
+            row[3] = r.getString("statement_type"); 
+            list.add(row);
+            count++;
         }
         Object data[][] = new Object[list.size()][];
         list.toArray(data); 
-        TextTable tt = new TextTable(colNames, data);         
-        tt.printTable();         
+        TextTable tt = new TextTable(colNames, data);
+        tt.printTable();
+        System.out.println();
+        System.out.println(count + " records found.");
     }
 
     public void loadReports()
