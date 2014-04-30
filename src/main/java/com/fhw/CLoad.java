@@ -12,6 +12,7 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.querybuilder.*;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import com.datastax.driver.core.querybuilder.Select.Where;
 import com.fhw.Statement;
 import dnl.utils.text.table.*;
 import java.io.*;
@@ -64,7 +65,10 @@ public class CLoad
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3",  "-date", "2014-02-26", "-customerid", "4799", "-statementtype", "9700", "-consistency", "ONE", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
         //String margs[] = new String[]{"-node", "127.0.0.1",  "-date", "2014-02-27", "-customerid", "4799", "-statementtype", "9700", "-file", "/home/fwelland/Downloads/pdf-sample.pdf"};        
         //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-uuid", "53ad6a82-cfa6-4808-9423-9f76d9fd6de9"};
-        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-customerid", "47900"};        
+        //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select",  "-customerid", "47900"};        
+        String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select", "-customerid", "47900", "-statementtype", "0890"};        
+        //String margs[] = new String[]{"-node", "127.0.0.1", "-node", "127.0.0.2", "-node", "127.0.0.3", "-select", "-statementtype", "0890"};        
+        
         CLoad c = new CLoad();
         new JCommander(c, margs);
         c.connect();
@@ -155,6 +159,7 @@ public class CLoad
     public void selectStatements()
             throws Exception
     {
+        Where w = null; 
         Select q = QueryBuilder.select("archived_statement_id", "customer_id", "day", "month","year","statement_type", "statement_filename").from(keyspace, table);
         if(null != statementUUID)
         {
@@ -164,17 +169,31 @@ public class CLoad
         {
             if( null != customerId)
             {
-                q.where(eq("customer_id", customerId));
+                w = q.where(eq("customer_id", customerId));
+            }
+            
+            if( null != statementType)
+            {
+                Clause cl = eq("statement_type", statementType);
+                if(null != w)
+                {
+                    w.and(cl); 
+                }
+                else 
+                {
+                    w = q.where(cl);
+                }
             }
         }
-        
         if(null != clevel)
         {
             q.setConsistencyLevel(clevel);            
         }
-        
+        if(null != w)
+        {
+            q.allowFiltering();
+        }
         ResultSet rs = session.execute(q);
-        
         String colNames [] = {"statement id", "date","customer id", "statement type"};
         List<Object[]> list = new ArrayList<>();
         int count = 0;
@@ -209,3 +228,5 @@ public class CLoad
     private static final String root = "/home/fwelland/statements";
     private static final int root_len = root.length();
 }
+
+//create INDEX  statement_type_index ON statementarchive.statements( statement_type );
