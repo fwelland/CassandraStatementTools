@@ -13,7 +13,6 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.querybuilder.*;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import com.datastax.driver.core.querybuilder.Select.Where;
-import com.fhw.Statement;
 import dnl.utils.text.table.*;
 import java.io.*;
 import java.nio.*;
